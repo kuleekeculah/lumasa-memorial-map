@@ -216,6 +216,33 @@ var PH = {
   9:"site9.jpg", 10:"site10.jpg", 11:"site11.jpg", 12:"site12.jpg"
 };
 
+// Force-preload every photo into the browser cache immediately, before any popup
+// can possibly be opened. This eliminates the race condition where a popup tries
+// to display an image that has not finished downloading yet.
+var preloadedImages = {};
+(function preloadAllPhotos(){
+  Object.keys(PH).forEach(function(id){
+    var img = new Image();
+    img.src = PH[id];
+    preloadedImages[id] = img;
+  });
+})();
+
+function showImgError(imgEl, siteId){
+  var box = showDiagBox();
+  var line = document.createElement("div");
+  line.style.color = "#f55";
+  line.textContent = "FAILED to load image for site " + siteId + " -- attempted URL: " + imgEl.src;
+  box.appendChild(line);
+}
+function showImgOk(siteId){
+  var box = showDiagBox();
+  var line = document.createElement("div");
+  line.style.color = "#5f5";
+  line.textContent = "OK: image loaded for site " + siteId;
+  box.appendChild(line);
+}
+
 // If this page was opened via a shared site link, skip the intro screen automatically
 function hasSharedSite(){
   return /site=\d+/.test(window.location.hash);
@@ -436,19 +463,19 @@ function checkUrlForSite(){
     if(s){
       setTimeout(function(){
         map.setView([s.lat, s.lng], 14, {animate:true});
-        setTimeout(function(){ mkrs[id].bindPopup(mPop(s),{maxWidth:370,minWidth:320}).openPopup(); }, 500);
+        setTimeout(function(){ mkrs[id].openPopup(); }, 500);
       }, 300);
     }
   }
 }
 
-function bldM(){sites.forEach(function(s){var m=L.marker([s.lat,s.lng],{icon:mIcon(s)}).addTo(map);m.on("click",function(){m.bindPopup(mPop(s),{maxWidth:370,minWidth:320}).openPopup();document.querySelectorAll(".si").forEach(function(el){el.classList.remove("on");});var el=document.querySelector(".si[data-id='"+s.id+"']");if(el){el.classList.add("on");el.scrollIntoView({block:"nearest"});}});mkrs[s.id]=m;});}
+function bldM(){sites.forEach(function(s){var m=L.marker([s.lat,s.lng],{icon:mIcon(s)}).addTo(map);m.bindPopup(mPop(s),{maxWidth:370,minWidth:320});m.on("click",function(){m.openPopup();document.querySelectorAll(".si").forEach(function(el){el.classList.remove("on");});var el=document.querySelector(".si[data-id='"+s.id+"']");if(el){el.classList.add("on");el.scrollIntoView({block:"nearest"});}});mkrs[s.id]=m;});}
 
 function bldC(){var cs=[];sites.forEach(function(s){if(cs.indexOf(s.county)===-1)cs.push(s.county);});cs.sort();var fw=document.getElementById("cf");cs.forEach(function(c){var b=document.createElement("button");b.className="fb";b.dataset.v=c;b.textContent=c;fw.appendChild(b);});}
 
 function gF(){return sites.filter(function(s){return(ac==="all"||s.county===ac)&&(ap==="all"||gP(s.date)===ap)&&(s.name.toLowerCase().indexOf(st)!==-1||s.county.toLowerCase().indexOf(st)!==-1);});}
 
-function rndr(){var list=document.getElementById("sl");var nr=document.getElementById("nr");var f=gF();list.querySelectorAll(".si").forEach(function(el){el.remove();});document.getElementById("sn").textContent=f.length;var cs=[];f.forEach(function(s){if(cs.indexOf(s.county)===-1)cs.push(s.county);});document.getElementById("sc").textContent=cs.length;sites.forEach(function(s){var m=mkrs[s.id];if(!m)return;if(f.some(function(x){return x.id===s.id;})){if(!map.hasLayer(m))m.addTo(map);}else{if(map.hasLayer(m))map.removeLayer(m);}});if(!f.length){nr.style.display="block";return;}nr.style.display="none";var bc={massacre:"gm",execution:"ge",burial:"gb",memorial:"gr"};f.forEach(function(s){var item=document.createElement("div");item.className="si";item.dataset.id=s.id;item.innerHTML="<div class='sc'>"+s.county+" County</div><div class='sn'>"+s.name+"</div><div class='sd'>"+s.date+"</div><span class='sg "+(bc[s.type]||"gm")+"'>"+tL(s.type)+"</span>";item.addEventListener("click",function(){document.querySelectorAll(".si").forEach(function(el){el.classList.remove("on");});item.classList.add("on");map.setView([s.lat,s.lng],14,{animate:true});setTimeout(function(){mkrs[s.id].bindPopup(mPop(s),{maxWidth:370,minWidth:320}).openPopup();},450);if(window.innerWidth<=760)document.getElementById("panel").classList.remove("open");});list.appendChild(item);});}
+function rndr(){var list=document.getElementById("sl");var nr=document.getElementById("nr");var f=gF();list.querySelectorAll(".si").forEach(function(el){el.remove();});document.getElementById("sn").textContent=f.length;var cs=[];f.forEach(function(s){if(cs.indexOf(s.county)===-1)cs.push(s.county);});document.getElementById("sc").textContent=cs.length;sites.forEach(function(s){var m=mkrs[s.id];if(!m)return;if(f.some(function(x){return x.id===s.id;})){if(!map.hasLayer(m))m.addTo(map);}else{if(map.hasLayer(m))map.removeLayer(m);}});if(!f.length){nr.style.display="block";return;}nr.style.display="none";var bc={massacre:"gm",execution:"ge",burial:"gb",memorial:"gr"};f.forEach(function(s){var item=document.createElement("div");item.className="si";item.dataset.id=s.id;item.innerHTML="<div class='sc'>"+s.county+" County</div><div class='sn'>"+s.name+"</div><div class='sd'>"+s.date+"</div><span class='sg "+(bc[s.type]||"gm")+"'>"+tL(s.type)+"</span>";item.addEventListener("click",function(){document.querySelectorAll(".si").forEach(function(el){el.classList.remove("on");});item.classList.add("on");map.setView([s.lat,s.lng],14,{animate:true});setTimeout(function(){mkrs[s.id].openPopup();},450);if(window.innerWidth<=760)document.getElementById("panel").classList.remove("open");});list.appendChild(item);});}
 
 document.getElementById("cf").addEventListener("click",function(e){if(!e.target.classList.contains("fb"))return;document.querySelectorAll(".fb").forEach(function(b){b.classList.remove("on");});e.target.classList.add("on");ac=e.target.dataset.v;rndr();});
 document.getElementById("pf").addEventListener("click",function(e){if(!e.target.classList.contains("pb"))return;document.querySelectorAll(".pb").forEach(function(b){b.classList.remove("on");});e.target.classList.add("on");ap=e.target.dataset.v;rndr();});
